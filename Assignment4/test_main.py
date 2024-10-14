@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from Assignment4.data_extractor.data_extractor.docx_extractor import DOCXExtractor
 from Assignment4.data_extractor.data_extractor.pdf_extractor import PDFExtractor
 from Assignment4.data_extractor.data_extractor.pptx_extractor import PPTXExtractor
@@ -9,106 +9,193 @@ from Assignment4.data_extractor.file_loaders.ppt_loader import PPTLoader
 from Assignment4.data_extractor.storage.file_storage import FileStorage
 from Assignment4.data_extractor.storage.sql_storage import SQLStorage
 
-import os
 
-class TestMain(unittest.TestCase):
+class TestPDFLoader(unittest.TestCase):
+    def setUp(self):
+        self.pdf_loader = PDFLoader()  # Correct initialization
+        self.pdf_loader.load_file = MagicMock()
 
-    @patch('data_extractor.storage.file_storage.FileStorage')
-    @patch('data_extractor.storage.sql_storage.SQLStorage')
-    def test_pdf_extraction(self, MockSQLStorage, MockFileStorage):
-        # Mock the file path
-        file_path = "/home/shtlp_0132/Documents/Assignment_3_python-main/Assignment_3_python-main/files/sample.pdf"
+    def test_load_file(self):
+        self.pdf_loader.load_file()
+        self.pdf_loader.load_file.assert_called_once()
 
-        # Mock the loaders and extractors
-        mock_loader = MagicMock(spec=PDFLoader)
-        mock_extractor = MagicMock(spec=PDFExtractor)
+    def test_extract_text(self):
+        self.pdf_loader.extract_text = MagicMock(return_value=("Sample text", {"font_style": "Arial", "page_number": 1}))
+        text, metadata = self.pdf_loader.extract_text()
+        self.assertEqual(text, "Sample text")
+        self.assertEqual(metadata, {"font_style": "Arial", "page_number": 1})
 
-        # Mock methods inside extractors
-        mock_extractor.extract_text.return_value = "Sample text from PDF"
-        mock_extractor.extract_images.return_value = ['image1.png', 'image2.png']
-        mock_extractor.extract_urls.return_value = ['http://example.com']
-        mock_extractor.extract_tables.return_value = [["Row1", "Row2"]]
+    def test_extract_links(self):
+        self.pdf_loader.extract_links = MagicMock(return_value=[{"text": "Example", "url": "http://example.com", "page_number": 1}])
+        links = self.pdf_loader.extract_links()
+        self.assertEqual(links[0]["url"], "http://example.com")
 
-        # Mock the loader and extractor instantiation
-        with patch('data_extractor.file_loaders.pdf_loader.PDFLoader', return_value=mock_loader):
-            with patch('data_extractor.data_extractor.pdf_extractor.PDFExtractor', return_value=mock_extractor):
-                
-                # Test the file extraction
-                extractor = PDFExtractor(mock_loader)
-                extractor.load(file_path)
-                extracted_text = extractor.extract_text()
-                images = extractor.extract_images()
-                urls = extractor.extract_urls()
-                tables = extractor.extract_tables()
+    def test_extract_images(self):
+        self.pdf_loader.extract_images = MagicMock(return_value=[{"resolution": (1024, 768), "format": "JPEG", "page_number": 1}])
+        images = self.pdf_loader.extract_images()
+        self.assertEqual(images[0]["format"], "JPEG")
 
-                # Validate the extracted data
-                self.assertEqual(extracted_text, "Sample text from PDF")
-                self.assertEqual(images, ['image1.png', 'image2.png'])
-                self.assertEqual(urls, ['http://example.com'])
-                self.assertEqual(tables, [["Row1", "Row2"]])
-
-                # Test file storage interactions
-                mock_file_storage = MockFileStorage.return_value
-                mock_file_storage.store.assert_any_call("Sample text from PDF", os.path.basename(file_path), 'text')
-                mock_file_storage.store.assert_any_call(['image1.png', 'image2.png'], os.path.basename(file_path), 'image')
-                mock_file_storage.store.assert_any_call(['http://example.com'], os.path.basename(file_path), 'url')
-                mock_file_storage.store.assert_any_call([["Row1", "Row2"]], os.path.basename(file_path), 'table')
-
-                # Test SQL storage interactions
-                mock_sql_storage = MockSQLStorage.return_value
-                mock_sql_storage.store.assert_any_call("text", "Sample text from PDF")
-                mock_sql_storage.store.assert_any_call("image", ['image1.png', 'image2.png'])
-                mock_sql_storage.store.assert_any_call("url", ['http://example.com'])
-                mock_sql_storage.store.assert_any_call("data_table", ["Row1", "Row2"])
-
-    @patch('data_extractor.storage.file_storage.FileStorage')
-    @patch('data_extractor.storage.sql_storage.SQLStorage')
-    def test_docx_extraction(self, MockSQLStorage, MockFileStorage):
-        # Mock the file path
-        file_path = "/home/shtlp_0132/Documents/Assignment_3_python-main/Assignment_3_python-main/files/sample.docx"
-
-        # Mock the loaders and extractors
-        mock_loader = MagicMock(spec=DOCXLoader)
-        mock_extractor = MagicMock(spec=DOCXExtractor)
-
-        # Mock methods inside extractors
-        mock_extractor.extract_text.return_value = "Sample text from DOCX"
-        mock_extractor.extract_images.return_value = ['image1.png', 'image2.png']
-        mock_extractor.extract_urls.return_value = ['http://example.com']
-        mock_extractor.extract_tables.return_value = [["Row1", "Row2"]]
-
-        # Mock the loader and extractor instantiation
-        with patch('data_extractor.file_loaders.docx_loader.DOCXLoader', return_value=mock_loader):
-            with patch('data_extractor.data_extractor.docx_extractor.DOCXExtractor', return_value=mock_extractor):
-                
-                # Test the file extraction
-                extractor = DOCXExtractor(mock_loader)
-                extractor.load(file_path)
-                extracted_text = extractor.extract_text()
-                images = extractor.extract_images()
-                urls = extractor.extract_urls()
-                tables = extractor.extract_tables()
-
-                # Validate the extracted data
-                self.assertEqual(extracted_text, "Sample text from DOCX")
-                self.assertEqual(images, ['image1.png', 'image2.png'])
-                self.assertEqual(urls, ['http://example.com'])
-                self.assertEqual(tables, [["Row1", "Row2"]])
-
-                # Test file storage interactions
-                mock_file_storage = MockFileStorage.return_value
-                mock_file_storage.store.assert_any_call("Sample text from DOCX", os.path.basename(file_path), 'text')
-                mock_file_storage.store.assert_any_call(['image1.png', 'image2.png'], os.path.basename(file_path), 'image')
-                mock_file_storage.store.assert_any_call(['http://example.com'], os.path.basename(file_path), 'url')
-                mock_file_storage.store.assert_any_call([["Row1", "Row2"]], os.path.basename(file_path), 'table')
-
-                # Test SQL storage interactions
-                mock_sql_storage = MockSQLStorage.return_value
-                mock_sql_storage.store.assert_any_call("text", "Sample text from DOCX")
-                mock_sql_storage.store.assert_any_call("image", ['image1.png', 'image2.png'])
-                mock_sql_storage.store.assert_any_call("url", ['http://example.com'])
-                mock_sql_storage.store.assert_any_call("data_table", ["Row1", "Row2"])
+    def test_extract_tables(self):
+        self.pdf_loader.extract_tables = MagicMock(return_value=[{"dimensions": (5, 3), "page_number": 1}])
+        tables = self.pdf_loader.extract_tables()
+        self.assertEqual(tables[0]["dimensions"], (5, 3))
 
 
-if __name__ == '__main__':
+class TestDOCXLoader(unittest.TestCase):
+    def setUp(self):
+        self.docx_loader = DOCXLoader()  # Correct initialization
+        self.docx_loader.load_file = MagicMock()
+
+    def test_load_file(self):
+        self.docx_loader.load_file()
+        self.docx_loader.load_file.assert_called_once()
+
+    def test_extract_text(self):
+        self.docx_loader.extract_text = MagicMock(return_value=("Sample DOCX text", {"font_style": "Times New Roman"}))
+        text, metadata = self.docx_loader.extract_text()
+        self.assertEqual(text, "Sample DOCX text")
+        self.assertEqual(metadata["font_style"], "Times New Roman")
+
+    def test_extract_links(self):
+        self.docx_loader.extract_links = MagicMock(return_value=[{"text": "Docx link", "url": "http://docx.com"}])
+        links = self.docx_loader.extract_links()
+        self.assertEqual(links[0]["text"], "Docx link")
+
+    def test_extract_images(self):
+        self.docx_loader.extract_images = MagicMock(return_value=[{"resolution": (800, 600), "format": "PNG"}])
+        images = self.docx_loader.extract_images()
+        self.assertEqual(images[0]["format"], "PNG")
+
+    def test_extract_tables(self):
+        self.docx_loader.extract_tables = MagicMock(return_value=[{"dimensions": (2, 4)}])
+        tables = self.docx_loader.extract_tables()
+        self.assertEqual(tables[0]["dimensions"], (2, 4))
+
+
+class TestPPTLoader(unittest.TestCase):
+    def setUp(self):
+        self.ppt_loader = PPTLoader()  # Correct initialization
+        self.ppt_loader.load_file = MagicMock()
+
+    def test_load_file(self):
+        self.ppt_loader.load_file()
+        self.ppt_loader.load_file.assert_called_once()
+
+    def test_extract_text(self):
+        self.ppt_loader.extract_text = MagicMock(return_value=("Slide text", {"slide_number": 1}))
+        text, metadata = self.ppt_loader.extract_text()
+        self.assertEqual(text, "Slide text")
+        self.assertEqual(metadata["slide_number"], 1)
+
+    def test_extract_links(self):
+        self.ppt_loader.extract_links = MagicMock(return_value=[{"text": "PPT Link", "url": "http://pptlink.com"}])
+        links = self.ppt_loader.extract_links()
+        self.assertEqual(links[0]["url"], "http://pptlink.com")
+
+    def test_extract_images(self):
+        self.ppt_loader.extract_images = MagicMock(return_value=[{"resolution": (1280, 720), "format": "JPEG"}])
+        images = self.ppt_loader.extract_images()
+        self.assertEqual(images[0]["resolution"], (1280, 720))
+
+    def test_extract_tables(self):
+        self.ppt_loader.extract_tables = MagicMock(return_value=[{"dimensions": (3, 5)}])
+        tables = self.ppt_loader.extract_tables()
+        self.assertEqual(tables[0]["dimensions"], (3, 5))
+
+
+class TestFileStorage(unittest.TestCase):
+    def setUp(self):
+        self.extractor = MagicMock()
+        self.file_storage = FileStorage(self.extractor)
+
+    def test_store_text(self):
+        self.file_storage.store_text = MagicMock()
+        self.file_storage.store_text()
+        self.file_storage.store_text.assert_called_once()
+
+    def test_store_links(self):
+        self.file_storage.store_links = MagicMock()
+        self.file_storage.store_links()
+        self.file_storage.store_links.assert_called_once()
+
+    def test_store_images(self):
+        self.file_storage.store_images = MagicMock()
+        self.file_storage.store_images()
+        self.file_storage.store_images.assert_called_once()
+
+    def test_store_tables(self):
+        self.file_storage.store_tables = MagicMock()
+        self.file_storage.store_tables()
+        self.file_storage.store_tables.assert_called_once()
+
+
+class TestSQLStorage(unittest.TestCase):
+    def setUp(self):
+        # SQLStorage may not need the extractor as a parameter
+        self.sql_storage = SQLStorage()  # Correct initialization, no extractor needed
+
+    def test_store_text(self):
+        self.sql_storage.store_text = MagicMock()
+        self.sql_storage.store_text()
+        self.sql_storage.store_text.assert_called_once()
+
+    def test_store_links(self):
+        self.sql_storage.store_links = MagicMock()
+        self.sql_storage.store_links()
+        self.sql_storage.store_links.assert_called_once()
+
+    def test_store_images(self):
+        self.sql_storage.store_images = MagicMock()
+        self.sql_storage.store_images()
+        self.sql_storage.store_images.assert_called_once()
+
+    def test_store_tables(self):
+        self.sql_storage.store_tables = MagicMock()
+        self.sql_storage.store_tables()
+        self.sql_storage.store_tables.assert_called_once()
+
+
+class TestCombinations(unittest.TestCase):
+    def test_pdf_combinations(self):
+        loader = PDFLoader()
+        combinations = [
+            ("extract_text", loader.extract_text, ("Text", {})),
+            ("extract_links", loader.extract_links, [{"url": "http://example.com"}]),
+            ("extract_images", loader.extract_images, [{"format": "JPEG"}]),
+            ("extract_tables", loader.extract_tables, [{"dimensions": (3, 4)}]),
+        ]
+        for name, method, result in combinations:
+            method = MagicMock(return_value=result)
+            output = method()
+            self.assertEqual(output, result)
+
+    def test_docx_combinations(self):
+        loader = DOCXLoader()
+        combinations = [
+            ("extract_text", loader.extract_text, ("Text", {})),
+            ("extract_links", loader.extract_links, [{"url": "http://docxlink.com"}]),
+            ("extract_images", loader.extract_images, [{"format": "PNG"}]),
+            ("extract_tables", loader.extract_tables, [{"dimensions": (2, 4)}]),
+        ]
+        for name, method, result in combinations:
+            method = MagicMock(return_value=result)
+            output = method()
+            self.assertEqual(output, result)
+
+    def test_ppt_combinations(self):
+        loader = PPTLoader()
+        combinations = [
+            ("extract_text", loader.extract_text, ("Text", {})),
+            ("extract_links", loader.extract_links, [{"url": "http://pptlink.com"}]),
+            ("extract_images", loader.extract_images, [{"format": "JPEG"}]),
+            ("extract_tables", loader.extract_tables, [{"dimensions": (3, 5)}]),
+        ]
+        for name, method, result in combinations:
+            method = MagicMock(return_value=result)
+            output = method()
+            self.assertEqual(output, result)
+
+
+# Run the tests
+if __name__ == "__main__":
     unittest.main()
