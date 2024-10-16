@@ -16,7 +16,7 @@ class PDFExtractor(Extractor):
         
     def extract_text(self):
         # Extract text from PDF
-        reader = self.loader.load_file(self.file_path)
+        reader = self.file
         text = ""
         for page in reader.pages:
             text += page.extract_text()
