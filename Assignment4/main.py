@@ -1,5 +1,4 @@
 import os
-import sys
 from data_extractor.data_extractor.docx_extractor import DOCXExtractor
 from data_extractor.data_extractor.pdf_extractor import PDFExtractor
 from data_extractor.data_extractor.pptx_extractor import PPTXExtractor
@@ -8,15 +7,20 @@ from data_extractor.file_loaders.docx_loader import DOCXLoader
 from data_extractor.file_loaders.ppt_loader import PPTLoader
 from data_extractor.storage.file_storage import FileStorage
 from data_extractor.storage.sql_storage import SQLStorage
+from dotenv import load_dotenv
+load_dotenv()
 
 def main():
-    
-    # Ensure that a file path is passed as an argument
-    if len(sys.argv) < 2:
-        print("Usage: python3 main.py <file_path>")
-        sys.exit(1)
+    # Get configuration from environment variables
+    file_path = input("Enter the file path: ")
+    database_name = os.getenv("DATABASE_NAME")
+    table_name_text = os.getenv("TABLE_NAME_TEXT")
+    table_name_image = os.getenv("TABLE_NAME_IMAGE")
+    table_name_url = os.getenv("TABLE_NAME_URL")
+    table_name_data_table = os.getenv("TABLE_NAME_DATA_TABLE")
 
-    file_path = sys.argv[1]
+    if not file_path:
+        raise ValueError("FILE_PATH is not set in the environment file.")
 
     # Determine the file type and use the appropriate loader
     if file_path.endswith(".pdf"):
@@ -50,15 +54,16 @@ def main():
     file_storage = FileStorage(output_dir)
 
     # Save the extracted text
-    file_storage.store(extracted_text, os.path.basename(file_path), 'text')
+    file_storage.store(extracted_text, os.path.basename(file_path), table_name_text)
 
     # Save the extracted images
+    image_data = None
     if images:
-        file_storage.store(images, os.path.basename(file_path), 'image')
+        image_data = file_storage.store(images, os.path.basename(file_path), table_name_image)
 
     # Save the extracted URLs (if any)
     if urls:
-        file_storage.store(urls, os.path.basename(file_path), 'url')
+        file_storage.store(urls, os.path.basename(file_path), table_name_url)
 
     # Save the extracted tables (if any)
     if tables:
@@ -67,23 +72,23 @@ def main():
     print(f"Extracted data saved to: {output_dir}")
     
     # Create an instance of SQLStorage
-    sql_storage = SQLStorage()
+    sql_storage = SQLStorage(database_name)
 
     # Store the extracted text in the SQL database
-    sql_storage.store("text", extracted_text)
+    sql_storage.store(table_name_text, extracted_text)
 
     # Store the extracted images in the SQL database
     if images:
-        sql_storage.store("image", images)
+        sql_storage.store(table_name_image, image_data)
 
     # Store the extracted URLs in the SQL database
     if urls:
-        sql_storage.store("url", urls)
+        sql_storage.store(table_name_url, urls)
 
     # Store the extracted tables in the SQL database
     if tables:
         for table in tables:
-            sql_storage.store("data_table", table)
+            sql_storage.store(table_name_data_table, table)
 
     print("Data stored in SQL database")
     sql_storage.close()

@@ -1,8 +1,8 @@
 from data_extractor.storage.storage import Storage
 
 class SQLStorage(Storage):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, database):
+        super().__init__(database)
 
     def store(self, table_name, data):
         # Sanitize the table_name variable
@@ -32,9 +32,15 @@ class SQLStorage(Storage):
         # Commit the changes
         self.conn.commit()
 
+    def retrieve_all(self, table_name):
+        escaped_table_name = f'"{table_name}"'
+        self.cursor.execute(f"SELECT * FROM {escaped_table_name}")
+        return self.cursor.fetchall()
+
+    def retrieve_by_id(self, table_name, row_id):
+        escaped_table_name = f'"{table_name}"'
+        self.cursor.execute(f"SELECT * FROM {escaped_table_name} WHERE id = ?", (row_id,))
+        return self.cursor.fetchone()
 
     def close(self):
-        """
-        Closes the connection to the database.
-        """
         self.conn.close()
